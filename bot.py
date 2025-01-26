@@ -1,4 +1,4 @@
-# Importing necessary libraries
+# Импортируем библиотеки
 import tensorflow as tf
 import sys
 import os
@@ -14,12 +14,12 @@ from tensorflow.keras.models import Model
 from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-# Load the dataset
+# Загружаем датасет
 script_dir = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(script_dir, 'content.json'), 'rt', encoding='utf-8') as jsonfile:
     data = json.load(jsonfile)
 
-# Preparing the dataset
+# Подготовка датасета
 tags = []
 inputs = []
 responses = {}
@@ -30,28 +30,31 @@ for intent in data['intents']:
         inputs.append(line)
         tags.append(intent['tag'])
 
-# Convert to DataFrame
+# Преобразование
 data_df = pd.DataFrame({"inputs": inputs, "tags": tags})
 
-# Preprocess text data: remove punctuation and lowercase
+# Предварительная обработка текстовых данных: удаление знаков препинания и строчных букв
 data_df['inputs'] = data_df['inputs'].apply(lambda wrd: ''.join([l.lower() for l in wrd if l not in string.punctuation]))
 
-# Tokenize text data
+# Токенизация текстовых данных
 tokenizer = Tokenizer(num_words=2000)
 tokenizer.fit_on_texts(data_df['inputs'])
 x_train = tokenizer.texts_to_sequences(data_df['inputs'])
 x_train = pad_sequences(x_train)
 
-# Encode output labels
+# Кодировка выходных меток
 le = LabelEncoder()
 y_train = le.fit_transform(data_df['tags'])
 
-# Define model parameters
+# Определить параметры модели
 input_shape = x_train.shape[1]
+print(input_shape)
 vocabulary_size = len(tokenizer.word_index) + 1
+print("Число уникальных слов:", vocabulary_size)
 output_length = len(le.classes_)
+print("output length:", output_length)
 
-# Build the model
+# Построение модели
 inputs_layer = Input(shape=(input_shape,))
 x = Embedding(vocabulary_size, 10)(inputs_layer)
 x = LSTM(10, return_sequences=True)(x)
@@ -59,19 +62,19 @@ x = Flatten()(x)
 x = Dense(output_length, activation="softmax")(x)
 model = Model(inputs=inputs_layer, outputs=x)
 
-# Compile the model
+# Составить модель
 model.compile(loss="sparse_categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
 
-# Train the model
+# Обучить модель
 history = model.fit(x_train, y_train, epochs=200, batch_size=8, verbose=1)
 
-# Plot training history
+
 plt.plot(history.history['accuracy'], label='Accuracy')
 plt.plot(history.history['loss'], label='Loss')
 plt.legend()
 plt.show()
 
-# Chat functionality
+# Функциональность чат-бота
 def chat():
     print("Start talking to the Blood-donor_bot (type 'quit' to exit)")
     while True:
@@ -80,19 +83,20 @@ def chat():
             print("Blood-donor_bot: До свидания!")
             break
 
-        # Preprocess user input
+        # Предварительная обработка пользовательского ввода
         user_input = ''.join([char.lower() for char in user_input if char not in string.punctuation])
         sequence = tokenizer.texts_to_sequences([user_input])
         padded_sequence = pad_sequences(sequence, maxlen=input_shape)
 
-        # Predict response
+        # Предсказание ответа
         prediction = model.predict(padded_sequence, verbose=0)
         predicted_tag = le.inverse_transform([np.argmax(prediction)])[0]
 
-        # Select random response from matched tag
+        # Выбор случайного ответа из соответствующего тега
         bot_response = random.choice(responses[predicted_tag])
         print(f"Blood-donor_bot: {bot_response}")
 
-# Start the chatbot
+# Чат-бот
 if __name__ == "__main__":
     chat()
+
